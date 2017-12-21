@@ -1,78 +1,40 @@
 require('./theme/index.css');
-
 const THREE = require('three');
+const {WindowListener} = require('./windowListener');
+const {InputListener} = require('./inputListener');
+const {mainLoopProvider} = require('./update');
 
-const fragmentShader = require('./shaders/test.frag');
-const vertexShader = require('./shaders/test.vert');
-
-var container;
-var camera, scene, renderer, mesh;
-var uniforms;
-
-init();
-animate();
-
-function init() {
-    container = document.body;
-
-    camera = new THREE.Camera();
-    camera.position.z = 1;
-
-    scene = new THREE.Scene();
-
-    var geometry = new THREE.BoxBufferGeometry( 1, 1, 1 );
-
-    uniforms = {
-        u_time: {
-            type: "f",
-            value: 1.0
-        },
-        u_resolution: {
-            type: "v2",
-            value: new THREE.Vector2()
-        },
-        u_mouse: {
-            type: "v2",
-            value: new THREE.Vector2()
-        }
-    };
-
-    var material = new THREE.ShaderMaterial({
-        uniforms: uniforms,
-        vertexShader,
-        fragmentShader
-    });
-
-    mesh = new THREE.Mesh(geometry, material);
-    scene.add(mesh);
-
-    renderer = new THREE.WebGLRenderer();
-    renderer.setPixelRatio(window.devicePixelRatio);
-
-    container.appendChild(renderer.domElement);
-
-    onWindowResize();
-    window.addEventListener('resize', onWindowResize, false);
-
-    document.onmousemove = function(e) {
-        uniforms.u_mouse.value.x = e.pageX
-        uniforms.u_mouse.value.y = e.pageY
-    }
+// only handles onWindowResize currenlty, .. todo: remove this class
+class RendererController{
+	constructor(windowListener){
+		this.renderer = new THREE.WebGLRenderer();
+		this.renderer.setPixelRatio(window.devicePixelRatio);
+		this.onWindowResize.bind(this);
+		windowListener.subscribeToWindowResize(this);
+	}
+	onWindowResize({width, height}){
+		this.renderer.setSize(width, height);
+	}
+	getRenderer(){
+		return this.renderer;
+	}
 }
 
-function onWindowResize(event) {
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    uniforms.u_resolution.value.x = renderer.domElement.width;
-    uniforms.u_resolution.value.y = renderer.domElement.height;
+const initApp = () => {
+	//listeners
+	const inputListener = new InputListener();
+	const windowListener = new WindowListener();
+
+	//renderer
+	const rendererController = new RendererController(windowListener);
+	const renderer = rendererController.getRenderer();
+    document.body.appendChild(renderer.domElement);
+
+	const mainLoop = mainLoopProvider(renderer, inputListener, windowListener);
+	//phony resize, so everyone gets the windowsize
+	windowListener.onWindowResize();
+	//start mainLoop
+	mainLoop();
 }
 
-function animate() {
-    requestAnimationFrame(animate);
-
-    render();
-}
-
-function render() {
-    uniforms.u_time.value += 0.05;
-    renderer.render(scene, camera);
-}
+initApp();
